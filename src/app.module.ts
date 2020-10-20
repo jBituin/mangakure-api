@@ -7,7 +7,7 @@ import { MangaModule } from './manga/manga.module';
 
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost/mangakure-db', {
+    MongooseModule.forRoot('mongodb://localhost/mangakure', {
       useNewUrlParser: true,
     }),
     MangaModule,

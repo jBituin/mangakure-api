@@ -64,4 +64,29 @@ export class MangaController {
       manga,
     });
   }
+
+  @Post('/load-mangas')
+  async loadMangas(@Res() res) {
+    const newMangas = await this.mangaService.loadMangas();
+
+    return res.status(HttpStatus.OK).json({
+      message: 'New batch of manga has been added',
+      newMangas,
+    });
+  }
+
+  @Get('/load-chapters')
+  async loadChapters(@Res() res) {
+    const loadedChapters = await this.mangaService.loadChapters();
+
+    return res.status(HttpStatus.OK).json({
+      message: 'New chapters has bee loaded',
+      loadedChapters,
+    });
+  }
+
+  @Get('/chapter-images/:chapterId')
+  async getChapterImages(@Res() res, @Param('chapterId') chapterId) {
+    const chapterImages = await this.mangaService.getChapterImages(chapterId);
+  }
 }
