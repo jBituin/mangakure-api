@@ -44,7 +44,7 @@ export default class NeloScraper {
 
       return {
         title,
-        coverImageUrl,
+        cover_image_url: coverImageUrl,
         url,
       };
     };
@@ -93,7 +93,7 @@ export default class NeloScraper {
 
   extractImagesFromChapter(chapterId) {
     const extractChapterImages = element => {
-      const url = element.attr('href');
+      const url = element.attr('src');
 
       return {
         url,
@@ -111,7 +111,6 @@ export default class NeloScraper {
         chapterId,
       });
     });
-    console.log('details', details);
     return details;
   }
 }
