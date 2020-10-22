@@ -1,6 +1,6 @@
 import * as mongoose from 'mongoose';
 
-export const ChapterImage = new mongoose.Schema({
+export const ChapterImageSchema = new mongoose.Schema({
   chapterId: String,
   url: String,
   sequence: Number,
