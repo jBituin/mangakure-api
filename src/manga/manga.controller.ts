@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { MangaService } from './manga.service';
 import { CreateMangaDTO } from './dto/manga.dto';
+import { ChapterImage } from './interfaces/chapterImage.interface';
 
 @Controller('manga')
 export class MangaController {
@@ -67,26 +68,35 @@ export class MangaController {
 
   @Post('/load-mangas')
   async loadMangas(@Res() res) {
-    const newMangas = await this.mangaService.loadMangas();
+    this.mangaService.loadMangas();
 
     return res.status(HttpStatus.OK).json({
-      message: 'New batch of manga has been added',
-      newMangas,
+      message: 'New batch of manga is being added',
     });
   }
 
-  @Get('/load-chapters')
+  @Post('/load-chapters')
   async loadChapters(@Res() res) {
     const loadedChapters = await this.mangaService.loadChapters();
 
     return res.status(HttpStatus.OK).json({
-      message: 'New chapters has bee loaded',
+      message: 'New chapters has been loaded',
       loadedChapters,
     });
   }
 
-  @Get('/chapter-images/:chapterId')
-  async getChapterImages(@Res() res, @Param('chapterId') chapterId) {
+  @Post('/chapter-images/')
+  async getChapterImages(@Res() res, @Body() chapterImage: ChapterImage) {
+    const { chapterId } = chapterImage;
     const chapterImages = await this.mangaService.getChapterImages(chapterId);
+
+    return res.status(HttpStatus.OK).json(chapterImages);
+  }
+
+  @Get('/manga-chapters/:mangaId')
+  async getMangaChapters(@Res() res, @Param('mangaId') mangaId) {
+    const mangaChapters = await this.mangaService.getMangaChapters(mangaId);
+
+    return res.status(HttpStatus.OK).json(mangaChapters);
   }
 }
