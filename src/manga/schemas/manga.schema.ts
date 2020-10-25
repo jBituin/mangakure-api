@@ -8,4 +8,7 @@ export const MangaSchema = new mongoose.Schema({
   cover_image_url: String,
   url: String,
   created_at: { type: Date, default: Date.now },
+  synopsis: String,
+  author: String,
+  tags: [String],
 });

@@ -1,8 +1,9 @@
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 
-// Manganelo site
-export default class NeloScraper {
+// mangareader site
+const MANGA_READER_SITE = 'https://www.mangareader.net';
+export default class MangaScraper {
   body;
   queue;
   $;
@@ -11,9 +12,8 @@ export default class NeloScraper {
 
   async loadUrl(url: string) {
     const { data: webpage } = await axios.get(url);
-    // console.log('webpage', webpage);
     this.$ = cheerio.load(webpage);
-    this.body = this.$('div[class="body-site"]');
+    this.body = this.$('#main');
   }
 
   getElementBySelector(selector: string) {
@@ -24,9 +24,11 @@ export default class NeloScraper {
     return element.attr(attribute);
   }
 
-  getPaginatedTopViewUrl(page: string | number) {
-    if (page == 1) page = '';
-    return `https://manganelo.com/genre-all/${page}?type=topview`;
+  getPaginatedTopViewUrl(page: string) {
+    if (page == '1') page = '';
+    else page = ((parseInt(page) - 1) * 30).toString();
+
+    return `${MANGA_READER_SITE}/popular/${page}`;
   }
 
   addUrlToQueue(urls) {
@@ -36,21 +38,36 @@ export default class NeloScraper {
   extractMangaDetailsFromTopViewUrl() {
     const extractDetails = element => {
       const title = element
-        .find('.genres-item-name')
+        .find('.d42')
         .text()
         .trim();
-      const url = element.find('.genres-item-name').attr('href');
-      const coverImageUrl = element.find('.img-loading').attr('src');
+      const coverImageUrl = element.find('.d41').attr('data-src');
+      const url = element.find('.d42 a').attr('href');
+      const author = element
+        .find('.d43')
+        .text()
+        .trim();
+      const tags = element
+        .find('.d46')
+        .text()
+        .trim()
+        .split(', ');
 
       return {
         title,
-        cover_image_url: coverImageUrl,
-        url,
+        cover_image_url: `https://${coverImageUrl.substring(
+          2,
+          coverImageUrl.length,
+        )}`,
+        url: `${MANGA_READER_SITE}${url}`,
+        tags,
+        author,
+        synopsis: '',
       };
     };
 
     let mangas = [];
-    this.body.find('.content-genres-item').each((i, element) => {
+    this.body.find('.d39 table tbody tr').each((i, element) => {
       const elementSelector = this.$(element);
       mangas.push(extractDetails(elementSelector));
     });
@@ -59,58 +76,80 @@ export default class NeloScraper {
     return mangas;
   }
 
-  extractChaptersFromManga(mangaId) {
+  extractAdditionalMangaDetailsFromChapter() {
+    const mangaCover = this.body.find('.d38 img').attr('src');
+    const mangaSynopsis = this.body
+      .find('.d46 p')
+      .text()
+      .trim();
+    const mangaDetails = {
+      mangaCover,
+      mangaSynopsis,
+    };
+
+    return mangaDetails;
+  }
+  extractChaptersFromManga(mangaId: string) {
+    const title = this.body
+      .find('.d41 .name')
+      .text()
+      .trim();
+
     const extractChapterDetails = element => {
-      const chapterNameElement = element.find('.chapter-name');
+      // Get the first column of the row
+      const chapterElement = element.find('td').first();
 
-      const label = chapterNameElement.text().trim();
-      const url = chapterNameElement.attr('href');
+      const anchorTag = chapterElement.find('a');
+      let label = `${chapterElement
+        .text()
+        .trim()
+        .replace(title, 'Chapter')
+        .replace(' :', ':')}`;
+      if (label.indexOf(':') + 1 === label.length)
+        label = label.replace(':', '');
 
-      if (!url) {
-        console.log('url', url);
-        console.log('label', label);
-      }
+      const url = anchorTag.attr('href');
+
       return {
         label,
-        url,
+        url: `${MANGA_READER_SITE}${url}`,
       };
     };
 
-    const chapters = this.body.find('li.a-h');
-    let details = [];
+    // d49 is table headers
+    const chapters = this.body.find('.d48 tbody tr:not(.d49)');
+    let chapterDetails = [];
 
-    chapters.each((i, element) => {
+    chapters.each((i: number, element) => {
       const elementSelector = this.$(element);
-      details.push({
+      chapterDetails.push({
         ...extractChapterDetails(elementSelector),
         sequence: i,
         mangaId,
       });
     });
-    console.log('details', details);
-    return details;
+    return chapterDetails;
   }
 
-  extractImagesFromChapter(chapterId) {
-    const extractChapterImages = element => {
-      const url = element.attr('src');
+  extractPagesFromChapter(chapterId: string) {
+    // Mangareader does not instanly inject image urls in the dom
+    // So we can't extract them from html > img elements
+    // However they are visible through the scripts with the intent
+    // of preloading
+    const scripts = this.$('script').get();
+    const parsedUrlsData = (() => {
+      const data = scripts[1].children[0].data;
+      return JSON.parse(data.replace('document["mj"]=', ''));
+    })();
 
+    const chapterPages = parsedUrlsData.im.map(({ u: img }, index) => {
       return {
-        url,
-      };
-    };
-
-    const images = this.body.find('.container-chapter-reader img');
-    let details = [];
-
-    images.each((i, element) => {
-      const elementSelector = this.$(element);
-      details.push({
-        ...extractChapterImages(elementSelector),
-        sequence: i,
+        url: `https://${img.substring(2, img.length)}`,
+        sequence: index,
         chapterId,
-      });
+      };
     });
-    return details;
+
+    return chapterPages;
   }
 }

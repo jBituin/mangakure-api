@@ -4,14 +4,14 @@ import { MangaService } from './manga.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MangaSchema } from './schemas/manga.schema';
 import { ChapterSchema } from './schemas/chapter.schema';
-import { ChapterImageSchema } from './schemas/chapterImage.schema';
+import { ChapterPageSchema } from './schemas/chapterPage.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: 'Manga', schema: MangaSchema },
       { name: 'Chapter', schema: ChapterSchema },
-      { name: 'ChapterImage', schema: ChapterImageSchema },
+      { name: 'ChapterPage', schema: ChapterPageSchema },
     ]),
   ],
   controllers: [MangaController],

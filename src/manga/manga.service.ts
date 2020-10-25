@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, MongooseFilterQuery, Types } from 'mongoose';
 import { Manga } from './interfaces/manga.interface';
@@ -6,16 +6,16 @@ import { CreateMangaDTO } from './dto/manga.dto';
 
 import { Chapter } from './interfaces/chapter.interface';
 
-import { ChapterImage } from './interfaces/chapterImage.interface';
+import { ChapterPage } from './interfaces/chapterPage.interface';
 
-import NeloScraper from '../crawler/crawler';
+import MangaScraper from '../crawler/crawler';
 @Injectable()
 export class MangaService {
   constructor(
     @InjectModel('Manga') private readonly mangaModel: Model<Manga>,
     @InjectModel('Chapter') private readonly chapterModel: Model<Chapter>,
-    @InjectModel('ChapterImage')
-    private readonly chapterImageModel: Model<ChapterImage>,
+    @InjectModel('ChapterPage')
+    private readonly chapterPageModel: Model<ChapterPage>,
   ) {}
 
   async getAllManga(): Promise<Manga[]> {
@@ -48,43 +48,58 @@ export class MangaService {
   }
 
   async loadMangas(): Promise<any> {
-    const neloScraper = new NeloScraper();
+    try {
+      const mangaScraper = new MangaScraper();
 
-    // Insert 5 pages worth of mangas
-    // 24 mangas per iteration
-    const mangas = [];
-    for (let index = 1; index <= 5; index++) {
-      const url = neloScraper.getPaginatedTopViewUrl(index);
-      await neloScraper.loadUrl(url);
-      mangas.push(...neloScraper.extractMangaDetailsFromTopViewUrl());
+      // Insert 5 pages worth of mangas
+      // 30 mangas per iteration
+      const mangas = [];
+      for (let index = 1; index <= 5; index++) {
+        const url = mangaScraper.getPaginatedTopViewUrl(index.toString());
+        await mangaScraper.loadUrl(url);
+        mangas.push(...mangaScraper.extractMangaDetailsFromTopViewUrl());
+      }
+
+      const newMangas = await this.mangaModel.insertMany(mangas, {
+        ordered: false,
+      });
+
+      for (let index = 1; index < newMangas.length; index++) {
+        await mangaScraper.loadUrl(newMangas[index].url);
+        const chapters = mangaScraper.extractChaptersFromManga(
+          newMangas[index]._id,
+        );
+
+        const additionalMangaDetails = mangaScraper.extractAdditionalMangaDetailsFromChapter();
+
+        const newMangaDetails = {
+          ...newMangas[index],
+          ...additionalMangaDetails,
+        };
+        await this.mangaModel.findByIdAndUpdate(
+          Types.ObjectId(newMangas[index]._id),
+          newMangaDetails,
+        );
+        await this.chapterModel.insertMany(chapters);
+      }
+
+      return newMangas;
+    } catch (error) {
+      Logger.log(error);
     }
-
-    const newMangas = await this.mangaModel.insertMany(mangas, {
-      ordered: false,
-    });
-
-    for (let index = 1; index < newMangas.length; index++) {
-      await neloScraper.loadUrl(newMangas[index].url);
-      const chapters = neloScraper.extractChaptersFromManga(
-        newMangas[index]._id,
-      );
-      await this.chapterModel.insertMany(chapters);
-    }
-
-    return newMangas;
   }
 
   async loadChapters(): Promise<any> {
-    const neloScraper = new NeloScraper();
+    const mangaScraper = new MangaScraper();
     const mangas = await this.getAllManga();
 
     let chapters = [];
     try {
       for (let index = 0; index < mangas.length; index++) {
-        await neloScraper.loadUrl(mangas[index].url);
+        await mangaScraper.loadUrl(mangas[index].url);
 
         const c = await this.chapterModel.insertMany(
-          neloScraper.extractChaptersFromManga(mangas[index].id),
+          mangaScraper.extractChaptersFromManga(mangas[index].id),
         );
         chapters.push(...c);
       }
@@ -92,30 +107,49 @@ export class MangaService {
     } catch (e) {}
   }
 
-  async getChapterImages(chapterId: string): Promise<any> {
-    let chapterImages = await this.chapterImageModel.find({
+  async getChapterPages(chapterId: string): Promise<any> {
+    let chapterPages = await this.chapterPageModel.find({
       chapterId,
     });
 
-    if (!chapterImages.length) {
-      const neloScraper = new NeloScraper();
+    if (!chapterPages.length) {
+      const mangaScraper = new MangaScraper();
       const chapter = await this.chapterModel.findOne({
         _id: Types.ObjectId(chapterId),
       });
-      await neloScraper.loadUrl(chapter.url);
+      await mangaScraper.loadUrl(chapter.url);
 
-      chapterImages = neloScraper.extractImagesFromChapter(chapterId);
+      chapterPages = mangaScraper.extractPagesFromChapter(chapterId);
 
-      this.chapterImageModel.insertMany(chapterImages);
+      this.chapterPageModel.insertMany(chapterPages);
     }
-    return chapterImages;
+
+    return chapterPages;
   }
 
   async getMangaChapters(mangaId): Promise<any> {
-    let mangaChapters = await this.chapterModel.find({
+    const manga = await this.mangaModel.findOne({
+      _id: Types.ObjectId(mangaId),
+    });
+
+    let chapters = await this.chapterModel.find({
       mangaId,
     });
 
-    return mangaChapters;
+    if (!manga) throw new Error('Manga not found');
+
+    if (!chapters.length) {
+      const mangaScraper = new MangaScraper();
+      await mangaScraper.loadUrl(manga.url);
+
+      chapters = mangaScraper.extractChaptersFromManga(mangaId);
+
+      this.chapterModel.insertMany(chapters);
+    }
+
+    return {
+      manga,
+      chapters,
+    };
   }
 }
