@@ -68,6 +68,7 @@ export class MangaService {
         await mangaScraper.loadUrl(newMangas[index].url);
         const chapters = mangaScraper.extractChaptersFromManga(
           newMangas[index]._id,
+          newMangas[index].slug,
         );
 
         const additionalMangaDetails = mangaScraper.extractAdditionalMangaDetailsFromChapter();
@@ -99,7 +100,10 @@ export class MangaService {
         await mangaScraper.loadUrl(mangas[index].url);
 
         const c = await this.chapterModel.insertMany(
-          mangaScraper.extractChaptersFromManga(mangas[index].id),
+          mangaScraper.extractChaptersFromManga(
+            mangas[index].id,
+            mangas[index].slug,
+          ),
         );
         chapters.push(...c);
       }
@@ -107,19 +111,24 @@ export class MangaService {
     } catch (e) {}
   }
 
-  async getChapterPages(chapterId: string): Promise<any> {
+  async getChapterPages(mangaSlug: string, chapterSlug: string): Promise<any> {
     let chapterPages = await this.chapterPageModel.find({
-      chapterId,
+      mangaSlug,
+      chapterSlug,
     });
 
     if (!chapterPages.length) {
       const mangaScraper = new MangaScraper();
       const chapter = await this.chapterModel.findOne({
-        _id: Types.ObjectId(chapterId),
+        mangaSlug,
+        slug: chapterSlug,
       });
+      console.log('chapter', chapter);
       await mangaScraper.loadUrl(chapter.url);
-
-      chapterPages = mangaScraper.extractPagesFromChapter(chapterId);
+      chapterPages = mangaScraper.extractPagesFromChapter(
+        mangaSlug,
+        chapterSlug,
+      );
 
       this.chapterPageModel.insertMany(chapterPages);
     }
@@ -127,22 +136,23 @@ export class MangaService {
     return chapterPages;
   }
 
-  async getMangaChapters(mangaId): Promise<any> {
+  async getMangaChapters(mangaSlug): Promise<any> {
     const manga = await this.mangaModel.findOne({
-      _id: Types.ObjectId(mangaId),
-    });
-
-    let chapters = await this.chapterModel.find({
-      mangaId,
+      slug: mangaSlug,
     });
 
     if (!manga) throw new Error('Manga not found');
+
+    const mangaId = manga._id;
+    let chapters = await this.chapterModel.find({
+      mangaId,
+    });
 
     if (!chapters.length) {
       const mangaScraper = new MangaScraper();
       await mangaScraper.loadUrl(manga.url);
 
-      chapters = mangaScraper.extractChaptersFromManga(mangaId);
+      chapters = mangaScraper.extractChaptersFromManga(mangaId, mangaSlug);
 
       this.chapterModel.insertMany(chapters);
     }

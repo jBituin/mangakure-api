@@ -5,4 +5,6 @@ export const ChapterSchema = new mongoose.Schema({
   label: String,
   url: String,
   sequence: Number,
+  slug: String,
+  mangaSlug: String,
 });

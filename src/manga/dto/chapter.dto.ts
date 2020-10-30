@@ -3,4 +3,6 @@ export class CreateChapterDTO {
   readonly label: string;
   readonly url: string;
   readonly sequence: number;
+  readonly slug: string;
+  readonly mangaSlug: string;
 }

@@ -87,17 +87,20 @@ export class MangaController {
   }
 
   @Post('/chapter-images/')
-  async getChapterPages(@Res() res, @Body() chapterPage: ChapterPage) {
-    const { chapterId } = chapterPage;
-    const chapterPages = await this.mangaService.getChapterPages(chapterId);
+  async getChapterPages(@Res() res, @Body() chapterPage) {
+    const { mangaSlug, chapterSlug } = chapterPage;
+    const chapterPages = await this.mangaService.getChapterPages(
+      mangaSlug,
+      chapterSlug,
+    );
 
     return res.status(HttpStatus.OK).json(chapterPages);
   }
 
   @Post('/manga-chapters')
   async getMangaChapters(@Res() res, @Body() chapter) {
-    const { mangaId } = chapter;
-    const mangaChapters = await this.mangaService.getMangaChapters(mangaId);
+    const { mangaSlug } = chapter;
+    const mangaChapters = await this.mangaService.getMangaChapters(mangaSlug);
 
     return res.status(HttpStatus.OK).json(mangaChapters);
   }

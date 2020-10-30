@@ -3,6 +3,16 @@ import axios from 'axios';
 
 // mangareader site
 const MANGA_READER_SITE = 'https://www.mangareader.net';
+
+function toDashCase(str) {
+  str = str
+    .toLowerCase()
+    .replace(/[\s!,:-]/g, '-')
+    .replace(/-{2,}|-$/, '-');
+  if (str.lastIndexOf('-') === str.length - 1)
+    str = str.substring(0, str.length - 1);
+  return str;
+}
 export default class MangaScraper {
   body;
   queue;
@@ -55,7 +65,7 @@ export default class MangaScraper {
 
       return {
         title,
-        cover_image_url: `https://${coverImageUrl.substring(
+        coverImageUrl: `https://${coverImageUrl.substring(
           2,
           coverImageUrl.length,
         )}`,
@@ -63,6 +73,7 @@ export default class MangaScraper {
         tags,
         author,
         synopsis: '',
+        slug: toDashCase(title),
       };
     };
 
@@ -73,6 +84,44 @@ export default class MangaScraper {
     });
 
     console.log('mangas', mangas);
+    return mangas;
+  }
+
+  extractMangaDetailsFromSearchUrl() {
+    const extractDetails = element => {
+      const title = element
+        .find('.57 a')
+        .text()
+        .trim();
+      const coverImageUrl = element.find('.d56').attr('data-src');
+      const url = element.find('.d57 a').attr('href');
+      const author = '';
+      const tags = element
+        .find('.d60')
+        .text()
+        .trim()
+        .split(', ');
+
+      return {
+        title,
+        coverImageUrl: `https://${coverImageUrl.substring(
+          2,
+          coverImageUrl.length,
+        )}`,
+        url: `${MANGA_READER_SITE}${url}`,
+        tags,
+        author,
+        synopsis: '',
+        slug: toDashCase(title),
+      };
+    };
+
+    let mangas = [];
+    this.body.find('.d52 .d54').each((i, element) => {
+      const elementSelector = this.$(element);
+      mangas.push(extractDetails(elementSelector));
+    });
+
     return mangas;
   }
 
@@ -89,7 +138,7 @@ export default class MangaScraper {
 
     return mangaDetails;
   }
-  extractChaptersFromManga(mangaId: string) {
+  extractChaptersFromManga(mangaId: string, mangaSlug: string) {
     const title = this.body
       .find('.d41 .name')
       .text()
@@ -113,6 +162,7 @@ export default class MangaScraper {
       return {
         label,
         url: `${MANGA_READER_SITE}${url}`,
+        slug: toDashCase(label),
       };
     };
 
@@ -126,12 +176,13 @@ export default class MangaScraper {
         ...extractChapterDetails(elementSelector),
         sequence: i,
         mangaId,
+        mangaSlug,
       });
     });
     return chapterDetails;
   }
 
-  extractPagesFromChapter(chapterId: string) {
+  extractPagesFromChapter(mangaId: string, chapterSlug: string) {
     // Mangareader does not instanly inject image urls in the dom
     // So we can't extract them from html > img elements
     // However they are visible through the scripts with the intent
@@ -146,7 +197,8 @@ export default class MangaScraper {
       return {
         url: `https://${img.substring(2, img.length)}`,
         sequence: index,
-        chapterId,
+        mangaId,
+        chapterSlug,
       };
     });
 

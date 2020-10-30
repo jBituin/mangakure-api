@@ -5,4 +5,6 @@ export interface Chapter extends Document {
   readonly label: string;
   readonly url: string;
   readonly sequence: number;
+  readonly slug: string;
+  readonly mangaSlug: string;
 }

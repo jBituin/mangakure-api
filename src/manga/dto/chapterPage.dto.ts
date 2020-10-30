@@ -1,6 +1,7 @@
 export class ChapterPageDTO {
-  readonly chapterId: string;
+  readonly mangaId: String;
   readonly url: string;
   readonly sequence: number;
   readonly alt: string;
+  readonly chapterSlug: string;
 }
