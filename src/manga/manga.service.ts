@@ -19,7 +19,34 @@ export class MangaService {
   ) {}
 
   async getAllManga(): Promise<Manga[]> {
-    const mangas = await this.mangaModel.find().exec();
+    const mangas = await this.mangaModel
+      .aggregate([
+        {
+          $lookup: {
+            from: 'chapters',
+            let: { mangaSlug: '$slug', sequence: '$sequence' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [{ $eq: ['$mangaSlug', '$$mangaSlug'] }],
+                  },
+                },
+              },
+              {
+                $sort: {
+                  sequence: -1,
+                },
+              },
+              {
+                $limit: 1,
+              },
+            ],
+            as: 'latestChapters',
+          },
+        },
+      ])
+      .exec();
     return mangas;
   }
 
