@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { MangaService } from './manga.service';
 import { CreateMangaDTO } from './dto/manga.dto';
+import { SearchDTO } from './dto/search.dto';
 import { ChapterPage } from './interfaces/chapterPage.interface';
 
 @Controller('manga')
@@ -103,5 +104,11 @@ export class MangaController {
     const mangaChapters = await this.mangaService.getMangaChapters(mangaSlug);
 
     return res.status(HttpStatus.OK).json(mangaChapters);
+  }
+
+  @Post('/search')
+  async searchManga(@Res() res, @Query() q: SearchDTO) {
+    const mangas = await this.mangaService.searchManga(q);
+    return res.status(HttpStatus.OK).json(mangas);
   }
 }

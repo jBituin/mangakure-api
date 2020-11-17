@@ -41,6 +41,10 @@ export default class MangaScraper {
     return `${MANGA_READER_SITE}/popular/${page}`;
   }
 
+  getSearchUrl(searchQuery: string) {
+    return `${MANGA_READER_SITE}/search/?w=${searchQuery}`;
+  }
+
   addUrlToQueue(urls) {
     this.queue = [...urls, ...this.queue];
   }
@@ -90,7 +94,7 @@ export default class MangaScraper {
   extractMangaDetailsFromSearchUrl() {
     const extractDetails = element => {
       const title = element
-        .find('.57 a')
+        .find('.d57 a')
         .text()
         .trim();
       const coverImageUrl = element.find('.d56').attr('data-src');

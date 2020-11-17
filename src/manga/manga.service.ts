@@ -1,14 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, MongooseFilterQuery, Types } from 'mongoose';
-import { Manga } from './interfaces/manga.interface';
+
 import { CreateMangaDTO } from './dto/manga.dto';
 
+import { Manga } from './interfaces/manga.interface';
 import { Chapter } from './interfaces/chapter.interface';
-
 import { ChapterPage } from './interfaces/chapterPage.interface';
 
+import { Search } from './interfaces/search.interface';
+
 import MangaScraper from '../crawler/crawler';
+import { SearchDTO } from './dto/search.dto';
 @Injectable()
 export class MangaService {
   constructor(
@@ -16,6 +19,7 @@ export class MangaService {
     @InjectModel('Chapter') private readonly chapterModel: Model<Chapter>,
     @InjectModel('ChapterPage')
     private readonly chapterPageModel: Model<ChapterPage>,
+    @InjectModel('Search') private readonly searchModel: Model<Search>,
   ) {}
 
   async getAllManga(): Promise<Manga[]> {
@@ -188,5 +192,36 @@ export class MangaService {
       manga,
       chapters,
     };
+  }
+
+  async searchManga(searchQuery: SearchDTO): Promise<any> {
+    const { query } = searchQuery;
+    const hasBeenSearched = await this.searchModel.findOne({
+      query: query,
+    });
+
+    let mangas: Array<Manga> = [];
+    if (hasBeenSearched) {
+      mangas = await this.mangaModel
+        .find({
+          title: {
+            $regex: query,
+          },
+        })
+        .exec();
+    } else {
+      const mangaScraper = new MangaScraper();
+      const url = mangaScraper.getSearchUrl(query);
+      await mangaScraper.loadUrl(url);
+      mangas.push(...mangaScraper.extractMangaDetailsFromSearchUrl());
+      await new this.searchModel(searchQuery).save();
+
+      // No need to wait for inserting of mangas
+      this.mangaModel.insertMany(mangas, {
+        ordered: false,
+      });
+    }
+
+    return mangas;
   }
 }
