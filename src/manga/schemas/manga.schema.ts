@@ -5,6 +5,7 @@ export const MangaSchema = new mongoose.Schema({
   coverImageUrl: String,
   url: String,
   created_at: { type: Date, default: Date.now },
+  status: String,
   synopsis: String,
   author: String,
   tags: [String],
@@ -12,4 +13,5 @@ export const MangaSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  last_sync: { type: Date, default: Date.now },
 });

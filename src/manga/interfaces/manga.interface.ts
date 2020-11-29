@@ -9,4 +9,6 @@ export interface Manga extends Document {
   readonly author: string;
   readonly tags: string[];
   readonly slug: string;
+  readonly status: string;
+  readonly last_sync: Date;
 }
