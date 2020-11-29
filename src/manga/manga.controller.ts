@@ -15,7 +15,7 @@ import {
 import { MangaService } from './manga.service';
 import { CreateMangaDTO } from './dto/manga.dto';
 import { SearchDTO } from './dto/search.dto';
-import { ChapterPage } from './interfaces/chapterPage.interface';
+import { PaginationOptionsInterface } from '../paginate';
 
 @Controller('manga')
 export class MangaController {
@@ -30,9 +30,9 @@ export class MangaController {
     });
   }
 
-  @Get('/mangas')
-  async getAllManga(@Res() res) {
-    const mangas = await this.mangaService.getAllManga();
+  @Post('/mangas')
+  async getAllManga(@Res() res, @Query() options: PaginationOptionsInterface) {
+    const mangas = await this.mangaService.getAllManga(options);
     return res.status(HttpStatus.OK).json(mangas);
   }
 
@@ -64,26 +64,6 @@ export class MangaController {
     return res.status(HttpStatus.OK).json({
       message: 'Manga has been deleted',
       manga,
-    });
-  }
-
-  @Post('/load-mangas')
-  async loadMangas(@Res() res) {
-    const newMangas = await this.mangaService.loadMangas();
-
-    return res.status(HttpStatus.OK).json({
-      message: 'New batch of manga has been added',
-      newMangas,
-    });
-  }
-
-  @Post('/load-chapters')
-  async loadChapters(@Res() res) {
-    const loadedChapters = await this.mangaService.loadChapters();
-
-    return res.status(HttpStatus.OK).json({
-      message: 'New chapters has been loaded',
-      loadedChapters,
     });
   }
 
