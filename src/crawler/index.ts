@@ -1,6 +1,9 @@
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 
+import { Chapter } from '../manga/interfaces/chapter.interface';
+import { Manga } from '../manga/interfaces/manga.interface';
+
 // mangareader site
 const MANGA_READER_SITE = 'https://www.mangareader.net';
 
@@ -130,18 +133,48 @@ export default class MangaScraper {
   }
 
   extractAdditionalMangaDetailsFromChapter() {
-    const mangaCover = this.body.find('.d38 img').attr('src');
-    const mangaSynopsis = this.body
+    const cover = this.body.find('.d38 img').attr('src');
+    const author = this.body
+      .find('.d41 tbody tr:nth-child(5) td:nth-child(2)')
+      .text()
+      .trim();
+    const status = this.body
+      .find('.d41 tbody tr:nth-child(4) td:nth-child(2)')
+      .text()
+      .trim();
+    const synopsis = this.body
       .find('.d46 p')
       .text()
       .trim();
+
+    console.log('authorzzz', author);
     const mangaDetails = {
-      mangaCover,
-      mangaSynopsis,
+      cover,
+      synopsis,
+      author,
+      status,
     };
 
     return mangaDetails;
   }
+
+  extractLatestMangaChapters(localChapters: Array<Chapter>, manga: Manga) {
+    const newChapters = [];
+    const { _id, slug } = manga;
+
+    const remoteChapters = this.extractChaptersFromManga(_id, slug);
+    const latestLocalChapter = localChapters[localChapters.length - 1];
+
+    let remoteIndex = remoteChapters.length - 1;
+
+    while (latestLocalChapter.slug !== remoteChapters[remoteIndex].slug) {
+      newChapters.unshift(remoteChapters[remoteIndex]);
+      remoteIndex--;
+    }
+
+    return newChapters;
+  }
+
   extractChaptersFromManga(mangaId: string, mangaSlug: string) {
     const title = this.body
       .find('.d41 .name')
