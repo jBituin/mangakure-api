@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, MongooseFilterQuery, Types } from 'mongoose';
+import { Model, MongooseFilterQuery, Types, Error } from 'mongoose';
 
-import { CreateMangaDTO } from './dto/manga.dto';
+import { Pagination, PaginationOptionsInterface } from '../paginate';
 
 import { Manga } from './interfaces/manga.interface';
 import { Chapter } from './interfaces/chapter.interface';
@@ -10,8 +10,16 @@ import { ChapterPage } from './interfaces/chapterPage.interface';
 
 import { Search } from './interfaces/search.interface';
 
-import MangaScraper from '../crawler/crawler';
 import { SearchDTO } from './dto/search.dto';
+import { CreateMangaDTO } from './dto/manga.dto';
+
+import MangaScraper from '../crawler';
+
+const MANGA_STATUS = {
+  ONGOING: 'ONGOING',
+  COMPLETED: 'COMPLETED',
+};
+
 @Injectable()
 export class MangaService {
   constructor(
@@ -22,36 +30,121 @@ export class MangaService {
     @InjectModel('Search') private readonly searchModel: Model<Search>,
   ) {}
 
-  async getAllManga(): Promise<Manga[]> {
-    const mangas = await this.mangaModel
-      .aggregate([
-        {
-          $lookup: {
-            from: 'chapters',
-            let: { mangaSlug: '$slug', sequence: '$sequence' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [{ $eq: ['$mangaSlug', '$$mangaSlug'] }],
-                  },
-                },
-              },
-              {
-                $sort: {
-                  sequence: -1,
-                },
-              },
-              {
-                $limit: 1,
-              },
-            ],
-            as: 'latestChapters',
+  async getAllManga(
+    options?: PaginationOptionsInterface,
+  ): Promise<Pagination<Manga>> {
+    let { limit, page, search } = options;
+
+    // setting default values
+    if (!limit) limit = 100;
+    if (!page) page = 1;
+
+    let hasBeenSearched: boolean = false;
+
+    try {
+      if (search) {
+        hasBeenSearched = !!(await this.searchModel.findOne({
+          search,
+        }));
+
+        if (!hasBeenSearched) {
+          const mangaScraper = new MangaScraper();
+          const url = mangaScraper.getSearchUrl(search);
+          await mangaScraper.loadUrl(url);
+          const newMangas = mangaScraper.extractMangaDetailsFromSearchUrl();
+
+          const newSearch: SearchDTO = {
+            query: search,
+          };
+          await new this.searchModel(newSearch).save();
+
+          try {
+            await this.mangaModel.insertMany(newMangas, {
+              ordered: false,
+            });
+          } catch (err) {}
+        }
+      }
+
+      const aggregate = this.mangaModel.aggregate();
+
+      // Exclude id and url fields
+      aggregate.project({ _id: false, url: false });
+
+      // aggregate.lookup({
+      //   from: 'chapters',
+      //   let: {
+      //     mangaSlug: '$slug',
+      //     sequence: '$sequence',
+      //     title: '$title',
+      //   },
+      //   pipeline: [
+      //     {
+      //       $match: {
+      //         $and: [
+      //           {
+      //             $expr: {
+      //               $and: [{ $eq: ['$mangaSlug', '$$mangaSlug'] }],
+      //             },
+      //           },
+      //         ],
+      //       },
+      //     },
+      //     {
+      //       $sort: {
+      //         sequence: -1,
+      //       },
+      //     },
+      //     {
+      //       $limit: 1,
+      //     },
+      //   ],
+      //   as: 'latestChapters',
+      // });
+
+      if (search) {
+        aggregate.match({
+          title: {
+            $regex: search,
+            $options: 'i',
           },
+        });
+      }
+
+      aggregate.facet({
+        mangas: [
+          {
+            $skip: (page - 1) * limit,
+          },
+          {
+            $limit: limit,
+          },
+        ],
+        total: [{ $count: 'total' }],
+      });
+
+      aggregate.addFields({
+        total: {
+          $ifNull: [
+            {
+              $arrayElemAt: ['$total.total', 0],
+            },
+            0,
+          ],
         },
-      ])
-      .exec();
-    return mangas;
+      });
+
+      const [{ mangas, total }] = await aggregate.exec();
+
+      return new Pagination<Manga>({
+        results: mangas,
+        total,
+        page,
+        pageSize: Math.round(parseInt(total) / limit),
+      });
+    } catch (err) {
+      console.log('err', err);
+    }
   }
 
   async getManga(mangaId: MongooseFilterQuery<'_id'>): Promise<Manga> {
@@ -127,7 +220,7 @@ export class MangaService {
 
     let chapters = [];
     try {
-      for (let index = 0; index < mangas.length; index++) {
+      for (let index = 0; index < mangas.results.length; index++) {
         await mangaScraper.loadUrl(mangas[index].url);
 
         const c = await this.chapterModel.insertMany(
@@ -186,6 +279,34 @@ export class MangaService {
       chapters = mangaScraper.extractChaptersFromManga(mangaId, mangaSlug);
 
       this.chapterModel.insertMany(chapters);
+    } else {
+      const { last_sync: lastSync, url } = manga;
+      const ONE_DAY = 3600 * 1000 * 24;
+
+      // If there is no sync in the past 24hrs;
+      if (new Date().getTime() - new Date(lastSync).getTime() > ONE_DAY) {
+        const mangaScraper = new MangaScraper();
+        await mangaScraper.loadUrl(url);
+
+        const newChapters = mangaScraper.extractLatestMangaChapters(
+          chapters,
+          manga,
+        );
+
+        if (newChapters.length) {
+          chapters.push(...newChapters);
+          this.chapterModel.insertMany(newChapters);
+        }
+
+        const {
+          author,
+          status,
+          synopsis,
+        } = mangaScraper.extractAdditionalMangaDetailsFromChapter();
+
+        // TODO: UPDATE LAST SYNC TO TODAY
+        // TODO: UPDATE MISC DETAILS
+      }
     }
 
     return {
