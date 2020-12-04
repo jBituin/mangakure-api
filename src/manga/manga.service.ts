@@ -69,7 +69,12 @@ export class MangaService {
       const aggregate = this.mangaModel.aggregate();
 
       // Exclude id and url fields
-      aggregate.project({ _id: false, url: false });
+      aggregate.project({
+        _id: false,
+        url: false,
+        last_sync: false,
+        created_at: false,
+      });
 
       // aggregate.lookup({
       //   from: 'chapters',
@@ -236,10 +241,18 @@ export class MangaService {
   }
 
   async getChapterPages(mangaSlug: string, chapterSlug: string): Promise<any> {
-    let chapterPages = await this.chapterPageModel.find({
-      mangaSlug,
-      chapterSlug,
-    });
+    let chapterPages = await this.chapterPageModel.find(
+      {
+        mangaId: mangaSlug,
+        chapterSlug,
+      },
+      {
+        mangaId: false,
+        sequence: false,
+        chapterSlug: false,
+        __v: false,
+      },
+    );
 
     if (!chapterPages.length) {
       const mangaScraper = new MangaScraper();
@@ -247,7 +260,6 @@ export class MangaService {
         mangaSlug,
         slug: chapterSlug,
       });
-      console.log('chapter', chapter);
       await mangaScraper.loadUrl(chapter.url);
       chapterPages = mangaScraper.extractPagesFromChapter(
         mangaSlug,
@@ -268,44 +280,67 @@ export class MangaService {
     if (!manga) throw new Error('Manga not found');
 
     const mangaId = manga._id;
-    let chapters = await this.chapterModel.find({
-      mangaId,
-    });
+    let chapters = await this.chapterModel
+      .find(
+        {
+          mangaId,
+        },
+        {
+          _id: false,
+          sequence: false,
+          mangaSlug: false,
+          url: false,
+          mangaId: false,
+          __v: false,
+        },
+      )
+      .sort({ sequence: -1 });
 
     if (!chapters.length) {
       const mangaScraper = new MangaScraper();
       await mangaScraper.loadUrl(manga.url);
 
-      chapters = mangaScraper.extractChaptersFromManga(mangaId, mangaSlug);
+      chapters = mangaScraper
+        .extractChaptersFromManga(mangaId, mangaSlug)
+        .reverse();
 
       this.chapterModel.insertMany(chapters);
     } else {
-      const { last_sync: lastSync, url } = manga;
-      const ONE_DAY = 3600 * 1000 * 24;
+      if (manga.status === MANGA_STATUS.ONGOING) {
+        const { last_sync: lastSync, url } = manga;
+        const ONE_DAY = 3600 * 1000 * 24;
+        if (new Date().getTime() - new Date(lastSync).getTime() > ONE_DAY) {
+          const mangaScraper = new MangaScraper();
+          await mangaScraper.loadUrl(url);
 
-      // If there is no sync in the past 24hrs;
-      if (new Date().getTime() - new Date(lastSync).getTime() > ONE_DAY) {
-        const mangaScraper = new MangaScraper();
-        await mangaScraper.loadUrl(url);
+          const newChapters = mangaScraper.extractLatestMangaChapters(
+            chapters,
+            manga,
+          );
 
-        const newChapters = mangaScraper.extractLatestMangaChapters(
-          chapters,
-          manga,
-        );
+          if (newChapters.length) {
+            chapters.push(...newChapters);
+            this.chapterModel.insertMany(newChapters);
+          }
 
-        if (newChapters.length) {
-          chapters.push(...newChapters);
-          this.chapterModel.insertMany(newChapters);
+          const {
+            author,
+            status,
+            synopsis,
+          } = mangaScraper.extractAdditionalMangaDetailsFromChapter();
+
+          await this.mangaModel.updateOne(
+            { _id: manga._id },
+            {
+              $set: {
+                last_sync: new Date(),
+                author,
+                synopsis,
+                status,
+              },
+            },
+          );
         }
-
-        const {
-          author,
-          status,
-          synopsis,
-        } = mangaScraper.extractAdditionalMangaDetailsFromChapter();
-
-        // TODO: UPDATE LAST SYNC TO TODAY
-        // TODO: UPDATE MISC DETAILS
       }
     }
 

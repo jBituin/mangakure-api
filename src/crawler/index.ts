@@ -163,7 +163,7 @@ export default class MangaScraper {
     const { _id, slug } = manga;
 
     const remoteChapters = this.extractChaptersFromManga(_id, slug);
-    const latestLocalChapter = localChapters[localChapters.length - 1];
+    const latestLocalChapter = localChapters[0];
 
     let remoteIndex = remoteChapters.length - 1;
 
