@@ -81,6 +81,7 @@ export default class MangaScraper {
         author,
         synopsis: '',
         slug: toDashCase(title),
+        chapters: [],
       };
     };
 
@@ -120,6 +121,7 @@ export default class MangaScraper {
         author,
         synopsis: '',
         slug: toDashCase(title),
+        chapters: [],
       };
     };
 
@@ -162,7 +164,7 @@ export default class MangaScraper {
     const newChapters = [];
     const { _id, slug } = manga;
 
-    const remoteChapters = this.extractChaptersFromManga(_id, slug);
+    const remoteChapters = this.extractChaptersFromManga();
     const latestLocalChapter = localChapters[0];
 
     let remoteIndex = remoteChapters.length - 1;
@@ -175,7 +177,7 @@ export default class MangaScraper {
     return newChapters;
   }
 
-  extractChaptersFromManga(mangaId: string, mangaSlug: string) {
+  extractChaptersFromManga() {
     const title = this.body
       .find('.d41 .name')
       .text()
@@ -212,14 +214,13 @@ export default class MangaScraper {
       chapterDetails.push({
         ...extractChapterDetails(elementSelector),
         sequence: i,
-        mangaId,
-        mangaSlug,
+        pages: [],
       });
     });
     return chapterDetails;
   }
 
-  extractPagesFromChapter(mangaId: string, chapterSlug: string) {
+  extractPagesFromChapter() {
     // Mangareader does not instanly inject image urls in the dom
     // So we can't extract them from html > img elements
     // However they are visible through the scripts with the intent
@@ -234,8 +235,6 @@ export default class MangaScraper {
       return {
         url: `https://${img.substring(2, img.length)}`,
         sequence: index,
-        mangaId,
-        chapterSlug,
       };
     });
 
