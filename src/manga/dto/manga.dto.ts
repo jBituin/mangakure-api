@@ -1,3 +1,5 @@
+import { Chapter } from '../interfaces/chapter.interface';
+
 export class CreateMangaDTO {
   readonly title: string;
   readonly coverImageUrl: string;
@@ -9,4 +11,5 @@ export class CreateMangaDTO {
   readonly slug: string;
   readonly status: string;
   readonly last_sync: Date;
+  readonly chapters: Chapter[];
 }

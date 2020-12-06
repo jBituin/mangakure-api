@@ -1,4 +1,5 @@
 import * as mongoose from 'mongoose';
+import { ChapterSchema } from './chapter.schema';
 
 export const MangaSchema = new mongoose.Schema({
   title: String,
@@ -14,4 +15,5 @@ export const MangaSchema = new mongoose.Schema({
     unique: true,
   },
   last_sync: { type: Date, default: Date.now },
+  chapters: [ChapterSchema],
 });

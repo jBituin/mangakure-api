@@ -1,4 +1,5 @@
 import { Document } from 'mongoose';
+import { Chapter } from './chapter.interface';
 
 export interface Manga extends Document {
   readonly title: string;
@@ -11,4 +12,5 @@ export interface Manga extends Document {
   readonly slug: string;
   readonly status: string;
   readonly last_sync: Date;
+  readonly chapters: Chapter[];
 }

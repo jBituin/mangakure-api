@@ -1,10 +1,10 @@
 import * as mongoose from 'mongoose';
+import { ChapterPageSchema } from './chapterPage.schema';
 
 export const ChapterSchema = new mongoose.Schema({
-  mangaId: String,
   label: String,
   url: String,
   sequence: Number,
   slug: String,
-  mangaSlug: String,
+  pages: [ChapterPageSchema],
 });

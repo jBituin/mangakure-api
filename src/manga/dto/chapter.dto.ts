@@ -1,3 +1,5 @@
+import { ChapterPage } from '../interfaces/chapterPage.interface';
+
 export class CreateChapterDTO {
   readonly mangaId: string;
   readonly label: string;
@@ -5,4 +7,5 @@ export class CreateChapterDTO {
   readonly sequence: number;
   readonly slug: string;
   readonly mangaSlug: string;
+  readonly pages: ChapterPage[];
 }
