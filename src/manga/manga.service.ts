@@ -39,7 +39,7 @@ export class MangaService {
     try {
       if (search) {
         hasBeenSearched = !!(await this.searchModel.findOne({
-          search,
+          query: search,
         }));
 
         if (!hasBeenSearched) {
@@ -199,7 +199,7 @@ export class MangaService {
       chapterPages = mangaScraper.extractPagesFromChapter();
 
       manga.chapters[0].pages.push(...chapterPages);
-      manga.save();
+      await manga.save();
     }
 
     return chapterPages;
@@ -221,7 +221,7 @@ export class MangaService {
       chapters = mangaScraper.extractChaptersFromManga().reverse();
 
       manga.chapters.push(...chapters);
-      manga.save();
+      await manga.save();
     } else {
       if (manga.status === MANGA_STATUS.ONGOING) {
         const { last_sync: lastSync, url } = manga;
@@ -238,7 +238,7 @@ export class MangaService {
           if (newChapters.length) {
             chapters.push(...newChapters);
             manga.chapters.push(...chapters);
-            manga.save();
+            await manga.save();
           }
 
           const {

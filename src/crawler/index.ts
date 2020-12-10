@@ -91,7 +91,6 @@ export default class MangaScraper {
       mangas.push(extractDetails(elementSelector));
     });
 
-    console.log('mangas', mangas);
     return mangas;
   }
 
@@ -149,7 +148,6 @@ export default class MangaScraper {
       .text()
       .trim();
 
-    console.log('authorzzz', author);
     const mangaDetails = {
       cover,
       synopsis,
